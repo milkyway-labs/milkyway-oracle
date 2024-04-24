@@ -1,0 +1,33 @@
+[package]
+name = "milkyway-oracle"
+authors = ["Decento Labs"]
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = 3
+rpath = false
+debug = false
+lto = true
+debug-assertions = false
+panic = 'abort'
+incremental = false
+overflow-checks = true
+
+[features]
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+cosmwasm-schema = "1.3.1"
+cosmwasm-std = "1.4.1"
+cw-storage-plus = "1.1.0"
+cw2 = "1.1.0"
+thiserror = "1.0.47"
+semver = "1.0.20"
