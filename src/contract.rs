@@ -111,15 +111,17 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 mod tests {
     use std::str::FromStr;
 
-    use crate::contract::{execute, instantiate, query};
+    use crate::contract::{execute, instantiate, query, migrate};
     use crate::msg::{
-        ExecuteMsg, HistoricalPurchaseRatesResponse, InstantiateMsg, PurchaseRate,
-        PurchaseRateResponse, QueryMsg, RedemptionRateResponse,
+        MigrateMsg, ExecuteMsg, HistoricalPurchaseRatesResponse, HistoricalRedemptionRatesResponse,
+        InstantiateMsg, PurchaseRate, PurchaseRateResponse, 
+        QueryMsg, RedemptionRateResponse, RedemptionRate,
     };
+    use crate::state::Config;
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
     };
-    use cosmwasm_std::{attr, from_json, Decimal, Empty, Env, MessageInfo, OwnedDeps};
+    use cosmwasm_std::{attr, from_json, to_json_binary, Decimal, Empty, Env, MessageInfo, OwnedDeps};
 
     const ADMIN_ADDRESS: &str = "my_address";
 
@@ -159,6 +161,18 @@ mod tests {
     }
 
     #[test]
+    fn test_config() {
+        let (deps, env, _info) = default_instantiate();
+        let msg = QueryMsg::Config {};
+        let resp = query(deps.as_ref(), env.clone(), msg).unwrap();
+        let resp:Config = from_json(&resp).unwrap();
+        assert_eq!(
+            resp.admin_address,
+            ADMIN_ADDRESS.to_string()
+        );
+    }
+
+    #[test]
     fn test_rates_not_found() {
         let (deps, env, _info) = default_instantiate();
         let denom = "factory/denom";
@@ -176,6 +190,42 @@ mod tests {
         };
         let resp = query(deps.as_ref(), env.clone(), msg);
         assert_eq!(resp.unwrap_err().to_string(), "Generic error: redemption rate not found");
+    }
+
+    #[test]
+    fn test_params_not_none() {
+        let (deps, env, _info) = default_instantiate();
+        let denom = "factory/denom";
+
+        let msg = QueryMsg::PurchaseRate {
+            denom: denom.to_string(),
+            params: Some(to_json_binary("test").unwrap()),
+        };
+        let resp = query(deps.as_ref(), env.clone(), msg);
+        assert_eq!(resp.unwrap_err().to_string(), "Generic error: invalid query request - params must be None");
+
+        let msg = QueryMsg::RedemptionRate {
+            denom: denom.to_string(),
+            params: Some(to_json_binary("test").unwrap()),
+        };
+        let resp = query(deps.as_ref(), env.clone(), msg);
+        assert_eq!(resp.unwrap_err().to_string(), "Generic error: invalid query request - params must be None");
+       
+        let msg = QueryMsg::HistoricalPurchaseRates {
+            denom: denom.to_string(),
+            params: Some(to_json_binary("test").unwrap()),
+            limit: None,
+        };
+        let resp = query(deps.as_ref(), env.clone(), msg);
+        assert_eq!(resp.unwrap_err().to_string(), "Generic error: invalid query request - params must be None");
+   
+        let msg = QueryMsg::HistoricalRedemptionRates {
+            denom: denom.to_string(),
+            params: Some(to_json_binary("test").unwrap()),
+            limit: None,
+        };
+        let resp = query(deps.as_ref(), env.clone(), msg);
+        assert_eq!(resp.unwrap_err().to_string(), "Generic error: invalid query request - params must be None");
     }
 
     #[test]
@@ -289,6 +339,45 @@ mod tests {
                     PurchaseRate {
                         denom: denom.to_string(),
                         purchase_rate: Decimal::from_str("0.9").unwrap(),
+                        update_time: 1571797419,
+                    },
+                ]
+            }
+        );
+
+        let msg = QueryMsg::RedemptionRate {
+            denom: denom.to_string(),
+            params: None,
+        };
+        let resp = query(deps.as_ref(), env.clone(), msg).unwrap();
+        let resp: RedemptionRateResponse = from_json(&resp).unwrap();
+        assert_eq!(
+            resp,
+            RedemptionRateResponse {
+                redemption_rate: Decimal::from_str("1.2").unwrap(),
+                update_time: 1571797469,
+            }
+        );
+
+        let msg = QueryMsg::HistoricalRedemptionRates {
+            denom: denom.to_string(),
+            params: None,
+            limit: None,
+        };
+        let resp = query(deps.as_ref(), env.clone(), msg).unwrap();
+        let resp: HistoricalRedemptionRatesResponse = from_json(&resp).unwrap();
+        assert_eq!(
+            resp,
+            HistoricalRedemptionRatesResponse {
+                redemption_rates: vec![
+                    RedemptionRate {
+                        denom: denom.to_string(),
+                        redemption_rate: Decimal::from_str("1.2").unwrap(),
+                        update_time: 1571797469,
+                    },
+                    RedemptionRate {
+                        denom: denom.to_string(),
+                        redemption_rate: Decimal::from_str("1.1").unwrap(),
                         update_time: 1571797419,
                     },
                 ]
